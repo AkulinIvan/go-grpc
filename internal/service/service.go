@@ -7,7 +7,7 @@ import (
     "google.golang.org/grpc"
 
     // Сгенерированный код
-    ssov1 "github.com/AkulinIvan/grpc/internal/proto/sso"
+    ssov1 "github.com/AkulinIvan/grpc/internal/proto"
 
 	"go.uber.org/zap"
 )
