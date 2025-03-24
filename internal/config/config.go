@@ -13,14 +13,11 @@ import (
 type Config struct {
 	LogLevel   string
 	GRPC       GRPCConfig
-	TokenTTL   time.Duration //`json:"token_ttl" env-default:"1h"`
 	PostgreSQL PostgreSQL
 }
 
 type GRPCConfig struct {
-	Port    string        //`envconfig:"PORT" required:"true"`
-	Token   string        //`envconfig:"TOKEN" required:"true"`
-	Timeout time.Duration //`json:"timeout"`
+	ListenAddress string        `envconfig:"GRPC_LISTEN_ADDRESS" required:"true"`
 }
 
 type PostgreSQL struct {
@@ -35,39 +32,38 @@ type PostgreSQL struct {
 	PoolMaxConnIdleTime time.Duration `envconfig:"DB_POOL_MAX_CONN_IDLE_TIME" default:"100s"`
 }
 
+func MustLoad() *Config {
+	configPath := fetchConfigPath()
+	if configPath == "" {
+		panic("config path is empty")
+	}
 
-func MustLoad() *Config {  
-    configPath := fetchConfigPath()  
-    if configPath == "" {  
-        panic("config path is empty") 
-    }  
+	// check if file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		panic("config file does not exist: " + configPath)
+	}
 
-    // check if file exists
-    if _, err := os.Stat(configPath); os.IsNotExist(err) {
-        panic("config file does not exist: " + configPath)
-    }
+	var cfg Config
 
-    var cfg Config
+	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
+		panic("config path is empty: " + err.Error())
+	}
 
-    if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
-        panic("config path is empty: " + err.Error())
-    }
-
-    return &cfg
+	return &cfg
 }
 
 // fetchConfigPath fetches config path from command line flag or environment variable.
 // Priority: flag > env > default.
 // Default value is empty string.
 func fetchConfigPath() string {
-    var res string
+	var res string
 
-    flag.StringVar(&res, "config", "", "path to config file")
-    flag.Parse()
+	flag.StringVar(&res, "config", "", "path to config file")
+	flag.Parse()
 
-    if res == "" {
-        res = os.Getenv("CONFIG_PATH")
-    }
+	if res == "" {
+		res = os.Getenv("CONFIG_PATH")
+	}
 
-    return res
+	return res
 }

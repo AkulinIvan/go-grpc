@@ -15,12 +15,11 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/pkg/errors"
 
-	customLogger "github.com/AkulinIvan/grpc/internal/logger"
+	customLogger "github.com/AkulinIvan/grpc/pkg/logger"
 
 	// Сгенерированный код
-	ssov1 "github.com/AkulinIvan/grpc/proto"
+	"github.com/AkulinIvan/grpc/proto"
 )
 
 func main() {
@@ -32,38 +31,46 @@ func main() {
 
 	var cfg config.Config
 	if err := envconfig.Process("", &cfg); err != nil {
-		log.Fatal(errors.Wrap(err, "failed to load configuration"))
+		log.Fatalf("failed to load configuration: %v", err)
 	}
 
 	logger, err := customLogger.NewLogger(cfg.LogLevel)
 	if err != nil {
-		log.Fatal(errors.Wrap(err, "error initializing logger"))
+		log.Fatalf("error initializing logger: %v", err)
 	}
-
-	repository, err := repo.NewRepository(context.Background(), cfg.PostgreSQL)
+	defer logger.Sync()
+	ctx := context.Background()
+	repository, err := repo.NewRepository(ctx, cfg.PostgreSQL)
 	if err != nil {
-		log.Fatal(errors.Wrap(err, "failed to initialize repository"))
+		log.Fatalf("failed to initialize repository: %v", err)
 	}
 
-	listener, _ := net.Listen("tcp", ":50051")
+	// Создаем сервис авторизации.
+	authSrv := service.NewAuthServer(repository, logger)
 
-	grpcInstance := grpc.NewServer()
+	// Создаем gRPC-сервер.
+	grpcServer := grpc.NewServer()
+	ssov1.RegisterAuthServiceServer(grpcServer, authSrv)
 
-	ssov1.RegisterAuthServiceServer(grpcInstance, service.NewProtoService(repository, logger))
+	// Слушаем адрес, указанный в конфигурации.
+	lis, err := net.Listen("tcp", cfg.GRPC.ListenAddress)
+	if err != nil {
+		logger.Fatalf("failed to listen on %s: %v", cfg.GRPC.ListenAddress, err)
+	}
 
+	// Запускаем сервер в горутине.
 	go func() {
-		logger.Infof("Starting gRPC server on port 50051")
-		if err := grpcInstance.Serve(listener); err != nil {
-			log.Fatal(errors.Wrap(err, "failed to start server"))
+		logger.Infof("gRPC server started on %s", cfg.GRPC.ListenAddress)
+		if err := grpcServer.Serve(lis); err != nil {
+			logger.Fatalf("failed to serve: %v", err)
 		}
-
 	}()
 
-	// Ожидание системных сигналов для корректного завершения работы
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-	<-signalChan
+	// Обработка сигналов для корректного завершения работы сервера.
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
 
-	logger.Info("Shutting down gracefully...")
-
+	logger.Info("Shutting down gRPC server...")
+	grpcServer.GracefulStop()
 }

@@ -3,28 +3,37 @@ package repo
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/AkulinIvan/grpc/internal/config"
-	"github.com/dgrijalva/jwt-go"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pkg/errors"
 )
 
 const (
-	checkUserQuery  = `SELECT * from userprofile where login = $1` // TODO change later, maybe select true from ...
-	insertUserQuery = `INSERT INTO users (id, login, passhash) VALUES (default, $1, $2)`
+	createUserQuery = `
+		INSERT INTO users (username, hashed_password, email, created_at, updated_at)
+		VALUES ($1, $2, $3, NOW(), NOW())
+		RETURNING id;
+	`
+
+	getUserByUsernameQuery = `
+		SELECT id, username, hashed_password, email, created_at, updated_at
+		FROM users
+		WHERE username = $1;
+	`
 )
 
+// Repository определяет интерфейс для работы с данными пользователей.
+type Repository interface {
+	// CreateUser создает пользователя и возвращает его ID.
+	CreateUser(ctx context.Context, user *User) (int, error)
+	// GetUserCredentials возвращает данные пользователя (включая хэшированный пароль) по username.
+	GetUserByUsername(ctx context.Context, username string) (*User, error)
+}
 
 type repository struct {
 	pool *pgxpool.Pool
-}
-
-type Repository interface {
-	Login(ctx context.Context, credentials User) (string, error)
-	Register(ctx context.Context, credentials User) (error)
 }
 
 func NewRepository(ctx context.Context, cfg config.PostgreSQL) (Repository, error) {
@@ -66,35 +75,28 @@ func NewRepository(ctx context.Context, cfg config.PostgreSQL) (Repository, erro
 
 }
 
-func (r *repository) Register(ctx context.Context, user User) error {
-	var check bool
-	row := r.pool.QueryRow(ctx, checkUserQuery, user.Login).Scan(&check)
-	row.Error()
-	if check == true {
-		return errors.New("Error, user already exists")
-	}
-	//ctag, err := r.pool.Exec()
-	// TODO add to DB
-	return nil // TODO add 
+func (r *repository) CreateUser(ctx context.Context, user *User) (int, error) {
+	var id int
+	err := r.pool.QueryRow(ctx, createUserQuery, user.Username, user.HashedPassword).Scan(&id)
 
+	if err != nil {
+		return 0, errors.Wrap(err, "Error, user already exists")
+	}
+	return id, nil
 }
 
-func (r *repository) Login(ctx context.Context, user User) (string, error) {
-	// TODO check if such user exists
-	//row := r.pool.QueryRow(ctx, checkUserQuery, credentials.Username)
-	// TODO check that row is not empty
-
-	token := jwt.New(jwt.SigningMethodHS256)
-	claims := token.Claims.(jwt.MapClaims)
-	claims["exp"] = time.Now().Add(10 * time.Minute)
-	claims["authorized"] = true
-	claims["user"] = user.Login
-	secret := []byte("secret")
-	tokenString, err := token.SignedString(secret) // TODO make this a .env variable, cryptographically random string
+func (r *repository) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+	var user User
+	err := r.pool.QueryRow(ctx, getUserByUsernameQuery, username).Scan(
+		&user.ID,
+		&user.Username,
+		&user.HashedPassword,
+		&user.Email,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
 	if err != nil {
-		return "", err
+		return nil, errors.Wrap(err, "failed to get user credentials")
 	}
-	// TODO maybe encode tokenString to base64??
-	return tokenString, nil
-
+	return &user, nil
 }
