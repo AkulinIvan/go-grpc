@@ -1,23 +1,22 @@
 package config
 
 import (
-	"flag"
-	"os"
 	"time"
-
-	"github.com/ilyakaznacheev/cleanenv"
 )
 
 // Общая конфигурация сервиса, тут должны быть все переменные
 
-type Config struct {
+type AppConfig struct {
 	LogLevel   string
 	GRPC       GRPCConfig
 	PostgreSQL PostgreSQL
+	System     System
 }
 
 type GRPCConfig struct {
-	ListenAddress string        `envconfig:"GRPC_LISTEN_ADDRESS" required:"true"`
+	ListenAddress   string        `envconfig:"GRPC_LISTEN_ADDRESS" required:"true"`
+	Token           string        `envconfig:"TOKEN" required:"true"`
+	RefreshTokenTTL time.Duration `envconfig:"REFRESH_TOKEN_TTL" default:"168h"`
 }
 
 type PostgreSQL struct {
@@ -32,38 +31,9 @@ type PostgreSQL struct {
 	PoolMaxConnIdleTime time.Duration `envconfig:"DB_POOL_MAX_CONN_IDLE_TIME" default:"100s"`
 }
 
-func MustLoad() *Config {
-	configPath := fetchConfigPath()
-	if configPath == "" {
-		panic("config path is empty")
-	}
-
-	// check if file exists
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		panic("config file does not exist: " + configPath)
-	}
-
-	var cfg Config
-
-	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
-		panic("config path is empty: " + err.Error())
-	}
-
-	return &cfg
-}
-
-// fetchConfigPath fetches config path from command line flag or environment variable.
-// Priority: flag > env > default.
-// Default value is empty string.
-func fetchConfigPath() string {
-	var res string
-
-	flag.StringVar(&res, "config", "", "path to config file")
-	flag.Parse()
-
-	if res == "" {
-		res = os.Getenv("CONFIG_PATH")
-	}
-
-	return res
+type System struct {
+	NumberPasswordAttempts int64         `envconfig:"NUMBER_PASSWORD_ATTEMPTS" default:"5"`
+	LockPasswordEntry      time.Duration `envconfig:"LOCK_PASSWORD_ENTRY" default:"5m"`
+	AccessTokenTimeout     time.Duration `envconfig:"ACCESS_TOKEN_TIMEOUT" default:"15m"`
+	RefreshTokenTimeout    time.Duration `envconfig:"REFRESH_TOKEN_TIMEOUT" default:"15m"`
 }

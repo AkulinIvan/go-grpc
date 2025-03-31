@@ -21,6 +21,8 @@ const (
 	ErrUnknownValidation  = "Unknown validation error"
 )
 
+
+
 func init() {
 	SetValidator(New())
 }
