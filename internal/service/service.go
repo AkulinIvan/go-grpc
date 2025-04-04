@@ -59,11 +59,17 @@ func (a *authServer) Register(ctx context.Context, req *AuthService.RegisterRequ
 
 	req.Password, _ = secure.HashPassword(req.Password)
 
+	_, err = a.repo.GetUserByUsername(ctx, req.Username)
+	if err == nil {
+		a.log.Error("Creating a new user failed: this user is exist", zap.Error(err))
+		return &AuthService.RegisterResponse{Message: "User is exist"}, errors.Wrap(err, "user is exist")
+	}
+
 	_, err = a.repo.CreateUser(ctx, &repo.User{
 		Username:       req.GetUsername(),
 		HashedPassword: req.GetPassword(),
-		Email:          req.GetEmail(),
 	})
+
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
@@ -114,12 +120,7 @@ func (a *authServer) Login(ctx context.Context, req *AuthService.LoginRequest) (
 	}, nil
 }
 
-func (a *authServer) UpdatePassword(
-	ctx context.Context,
-	req *AuthService.UpdatePasswordRequest,
-) (
-	*AuthService.UpdatePasswordResponse, error,
-) {
+func (a *authServer) UpdatePassword(ctx context.Context, req *AuthService.UpdatePasswordRequest) (*AuthService.UpdatePasswordResponse, error) {
 
 	remainingAttempts, err := a.checkRemainingAttempts(req.UserId)
 	if err != nil {
@@ -173,7 +174,7 @@ func (a *authServer) UpdatePassword(
 
 	a.numberPasswordEntries.Delete(strconv.FormatInt(req.UserId, 10))
 
-	return &AuthService.UpdatePasswordResponse{}, nil
+	return &AuthService.UpdatePasswordResponse{Message: "The password change was successful"}, nil
 }
 
 func (a *authServer) checkRemainingAttempts(userId int64) (int64, error) {
@@ -191,12 +192,7 @@ func (a *authServer) checkRemainingAttempts(userId int64) (int64, error) {
 
 }
 
-func (a *authServer) Validate(
-	ctx context.Context,
-	req *AuthService.ValidateRequest,
-) (
-	*AuthService.ValidateResponse, error,
-) {
+func (a *authServer) Validate(ctx context.Context, req *AuthService.ValidateRequest) (*AuthService.ValidateResponse, error) {
 
 	_, err := a.jwt.ValidateToken(&jwt.ValidateTokenParams{
 		Token: req.AccessToken,
@@ -228,12 +224,7 @@ func (a *authServer) Validate(
 	}, nil
 }
 
-func (a *authServer) NewJwt(
-	ctx context.Context,
-	req *AuthService.NewJwtRequest,
-) (
-	*AuthService.NewJwtResponse, error,
-) {
+func (a *authServer) NewJwt(ctx context.Context, req *AuthService.NewJwtRequest) (*AuthService.NewJwtResponse, error) {
 
 	if err := validator.Validate(ctx, req); err != nil {
 		a.log.Errorf("validation error: %v", err)
@@ -276,10 +267,7 @@ func (a *authServer) NewJwt(
 	}, nil
 }
 
-func (a *authServer) RevokeJwt(
-	ctx context.Context,
-	req *AuthService.RevokeJwtRequest,
-) (*AuthService.RevokeJwtResponse, error) {
+func (a *authServer) RevokeJwt(ctx context.Context, req *AuthService.RevokeJwtRequest) (*AuthService.RevokeJwtResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request is nil")
 	}
@@ -296,10 +284,7 @@ func (a *authServer) RevokeJwt(
 	return &AuthService.RevokeJwtResponse{}, nil
 }
 
-func (a *authServer) Refresh(
-	ctx context.Context,
-	req *AuthService.RefreshRequest,
-) (*AuthService.RefreshResponse, error) {
+func (a *authServer) Refresh(ctx context.Context, req *AuthService.RefreshRequest) (*AuthService.RefreshResponse, error) {
 	// Проверяем refresh token
 	refreshData, err := a.jwt.GetDataFromToken(&jwt.GetDataFromTokenParams{
 		Token: req.RefreshToken,
@@ -342,7 +327,7 @@ func (a *authServer) Refresh(
 	}
 
 	// Обновляем токен в БД
-	expiresAt := time.Now().Add(a.cfg.GRPC.Token)
+	expiresAt := time.Now().Add(a.cfg.GRPC.RefreshTokenTTL)
 	err = a.repo.UpdateRefreshToken(ctx, refreshData.UserId, req.RefreshToken, tokens.RefreshToken, expiresAt)
 	if err != nil {
 		a.log.Errorf("failed to update refresh token: %v", err)

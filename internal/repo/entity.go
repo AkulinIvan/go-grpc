@@ -3,13 +3,13 @@ package repo
 import "time"
 
 type User struct {
-	ID             int64     // Идентификатор пользователя
-	Username       string    // Имя пользователя (логин)
-	HashedPassword string    // Хэшированный пароль
-	Email          string    // email
-	CreatedAt      time.Time // Время создания
-	UpdatedAt      time.Time // Время последнего обновления
-}
+	ID             int64     
+	Username       string    
+	HashedPassword string    
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}	
+	
 
 type UpdatePasswordParams struct {
 	UserID          int64  `json:"user_id" validate:"required,gt=0"`

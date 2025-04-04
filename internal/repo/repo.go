@@ -51,9 +51,9 @@ const (
 	`
 	newRefreshTokenQuery = `
 		INSERT INTO refresh_tokens 
-		(user_id, token, expires_at, created_at, revoked) 
+		(user_id, token, expires_at, revoked) 
 		VALUES 
-		(@userID, @token, @expiresAt, @createdAt, false)
+		(@userID, @token, @expiresAt, false)
 	`
 	//update token
 	checkQuery = `
@@ -88,7 +88,7 @@ type Repository interface {
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
 
 	GetPassword(ctx context.Context, userID int64) (string, error)
-	UpdatePassword(context.Context, int64, string) error
+	UpdatePassword(ctx context.Context, userID int64, newPassword string) error
 
 	DeleteRefreshToken(ctx context.Context, userID int64) error
 	GetRefreshToken(ctx context.Context, userID int64) (string, error)
@@ -144,7 +144,7 @@ func (r *repository) CreateUser(ctx context.Context, user *User) (int, error) {
 	err := r.pool.QueryRow(ctx, createUserQuery, user.Username, user.HashedPassword).Scan(&id)
 
 	if err != nil {
-		return 0, errors.Wrap(err, "Error, user already exists")
+		return 0, errors.Wrap(err, "error, user already exists")
 	}
 	return id, nil
 }
@@ -155,9 +155,7 @@ func (r *repository) GetUserByUsername(ctx context.Context, username string) (*U
 		&user.ID,
 		&user.Username,
 		&user.HashedPassword,
-		&user.Email,
-		&user.CreatedAt,
-		&user.UpdatedAt,
+		
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get user credentials")
@@ -167,12 +165,9 @@ func (r *repository) GetUserByUsername(ctx context.Context, username string) (*U
 
 // Функция для сохранения хешированного пароля в базу данных
 func (r *repository) GetPassword(ctx context.Context, userID int64) (string, error) {
-	args := pgx.NamedArgs{
-		"userID": userID,
-	}
-
+	
 	var passwordHash string
-	err := r.pool.QueryRow(ctx, getPasswordQuery, args).Scan(&passwordHash)
+	err := r.pool.QueryRow(ctx, getPasswordQuery, userID).Scan(&passwordHash)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", fmt.Errorf("user with ID %d not found", userID)
@@ -187,12 +182,9 @@ func (r *repository) UpdatePassword(ctx context.Context, userID int64, newPasswo
 	if newPassword == "" {
 		return errors.New("new password hash can't be empty")
 	}
-	args := pgx.NamedArgs{
-		"userID":      userID,
-		"newPassword": newPassword,
-	}
+	
 	// Выполняем запрос
-	cmdTag, err := r.pool.Exec(ctx, updatePasswordQuery, args)
+	cmdTag, err := r.pool.Exec(ctx, updatePasswordQuery, userID, newPassword)
 	if err != nil {
 		return fmt.Errorf("failed to update password: %w", err)
 	}
@@ -228,7 +220,7 @@ func (r *repository) NewRefreshToken(ctx context.Context, userID int64, token st
 		"userID":    userID,
 		"token":     token,
 		"expiresAt": expiresAt,
-		"createdAt": time.Now().UTC(),
+		
 	}
 
 	_, err := r.pool.Exec(ctx, newRefreshTokenQuery, args)

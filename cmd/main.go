@@ -1,23 +1,31 @@
 package main
 
 import (
-	AuthService "github.com/AkulinIvan/grpc/proto"
-	"github.com/AkulinIvan/grpc/internal/config"
-	"github.com/AkulinIvan/grpc/internal/repo"
-	"github.com/AkulinIvan/grpc/internal/service"
-	"github.com/AkulinIvan/grpc/pkg/jwt"
-	logger "github.com/AkulinIvan/grpc/pkg/logger"
 	"context"
-	"github.com/kelseyhightower/envconfig"
-	"google.golang.org/grpc"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/AkulinIvan/grpc/internal/config"
+	"github.com/AkulinIvan/grpc/internal/repo"
+	"github.com/AkulinIvan/grpc/internal/service"
+	"github.com/AkulinIvan/grpc/pkg/jwt"
+	logger "github.com/AkulinIvan/grpc/pkg/logger"
+	AuthService "github.com/AkulinIvan/grpc/proto"
+	"github.com/joho/godotenv"
+	"github.com/kelseyhightower/envconfig"
+	"google.golang.org/grpc"
 )
 
 func main() {
+
+	
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Printf(".env file doesn't exist or can't read .env")
+	}
 
 	var cfg config.AppConfig
 	if err := envconfig.Process("", &cfg); err != nil {

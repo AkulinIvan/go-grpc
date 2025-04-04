@@ -8,12 +8,12 @@ import (
 
 type AppConfig struct {
 	LogLevel   string
-	GRPC       GRPCConfig
+	GRPC       GRPC
 	PostgreSQL PostgreSQL
 	System     System
 }
 
-type GRPCConfig struct {
+type GRPC struct {
 	ListenAddress   string        `envconfig:"GRPC_LISTEN_ADDRESS" required:"true"`
 	Token           string        `envconfig:"TOKEN" required:"true"`
 	RefreshTokenTTL time.Duration `envconfig:"REFRESH_TOKEN_TTL" default:"168h"`
@@ -30,6 +30,8 @@ type PostgreSQL struct {
 	PoolMaxConnLifetime time.Duration `envconfig:"DB_POOL_MAX_CONN_LIFETIME" default:"180s"`
 	PoolMaxConnIdleTime time.Duration `envconfig:"DB_POOL_MAX_CONN_IDLE_TIME" default:"100s"`
 }
+
+
 
 type System struct {
 	NumberPasswordAttempts int64         `envconfig:"NUMBER_PASSWORD_ATTEMPTS" default:"5"`
