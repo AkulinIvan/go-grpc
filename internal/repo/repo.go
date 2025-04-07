@@ -155,6 +155,8 @@ func (r *repository) GetUserByUsername(ctx context.Context, username string) (*U
 		&user.ID,
 		&user.Username,
 		&user.HashedPassword,
+		&user.CreatedAt,
+		&user.UpdatedAt,
 		
 	)
 	if err != nil {
