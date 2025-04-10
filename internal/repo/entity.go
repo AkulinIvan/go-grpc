@@ -10,6 +10,12 @@ type User struct {
 	UpdatedAt      time.Time
 }
 
+type User_Tokens struct {
+	User_ID      int64
+	AccessToken  string
+	RefreshToken string
+}
+
 type UpdatePasswordParams struct {
 	UserID          int64  
 	Password        string 

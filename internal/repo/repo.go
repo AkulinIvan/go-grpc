@@ -78,18 +78,22 @@ const (
 		VALUES
 			(@userID, @newToken, @newExpiresAt, NOW(), false)
 	`
+	createTokensQuery = `
+		INSERT INTO users_tokens (user_id, access_token, refresh_token)
+		VALUES ($1, $2, $3)
+		RETURNING id;
+	`
 )
 
 // Repository определяет интерфейс для работы с данными пользователей.
 type Repository interface {
-	// CreateUser создает пользователя и возвращает его ID.
 	CreateUser(ctx context.Context, user *User) (int, error)
-	// GetUserCredentials возвращает данные пользователя (включая хэшированный пароль) по username.
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
 
 	GetPassword(ctx context.Context, userID int64) (string, error)
 	UpdatePassword(ctx context.Context, userID int64, newPassword string) error
 
+	CreateTokens(ctx context.Context, users_tokens *User_Tokens) (int, error)
 	DeleteRefreshToken(ctx context.Context, userID int64) error
 	GetRefreshToken(ctx context.Context, userID int64) (string, error)
 	NewRefreshToken(ctx context.Context, userID int64, token string, expiresAt time.Time) error
@@ -197,6 +201,15 @@ func (r *repository) UpdatePassword(ctx context.Context, userID int64, newPasswo
 	}
 
 	return nil
+}
+
+func (r *repository) CreateTokens(ctx context.Context, users_tokens *User_Tokens) (int, error) {
+	var id int
+	err := r.pool.QueryRow(ctx, createTokensQuery, users_tokens.User_ID, users_tokens.AccessToken, users_tokens.RefreshToken).Scan(&id)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to insert user_tokens")
+	}
+	return id, nil
 }
 
 func (r *repository) GetRefreshToken(ctx context.Context, userID int64) (string, error) {

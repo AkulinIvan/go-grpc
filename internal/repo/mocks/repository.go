@@ -16,6 +16,27 @@ type Repository struct {
 	mock.Mock
 }
 
+// CreateTokens provides a mock function with given fields: ctx, users_tokens
+func (_m *Repository) CreateTokens(ctx context.Context, users_tokens *repo.User_Tokens) (int, error) {
+	ret := _m.Called(ctx, users_tokens)
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func(context.Context, *repo.User_Tokens) int); ok {
+		r0 = rf(ctx, users_tokens)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *repo.User_Tokens) error); ok {
+		r1 = rf(ctx, users_tokens)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CreateUser provides a mock function with given fields: ctx, user
 func (_m *Repository) CreateUser(ctx context.Context, user *repo.User) (int, error) {
 	ret := _m.Called(ctx, user)

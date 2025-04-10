@@ -10,6 +10,7 @@ type AppConfig struct {
 	LogLevel   string
 	GRPC       GRPC
 	PostgreSQL PostgreSQL
+	SecretKeys SecretKeys
 	System     System
 }
 
@@ -31,6 +32,10 @@ type PostgreSQL struct {
 	PoolMaxConnIdleTime time.Duration `envconfig:"DB_POOL_MAX_CONN_IDLE_TIME" default:"100s"`
 }
 
+type SecretKeys struct {
+	AccessSecret  string `envconfig:"Access_Secret" required:"true"`
+	RefreshSecret string `envconfig:"Refresh_Secret" required:"true"`
+}
 
 
 type System struct {
